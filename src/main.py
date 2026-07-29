@@ -8,7 +8,10 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 # 本地运行时加载 .env（GitHub Actions 用 env 注入，dotenv 缺失也不报错）
 try:
@@ -59,9 +62,23 @@ def run(dry_run: bool = False, save_path: str | None = None) -> int:
         print(body)
         return 0
 
+    # 存档到 reports/<北京日期>.md，便于在仓库里回看历史日报
+    _archive(title, body)
+
     # 推送
     ok = _dispatch(title, body)
     return 0 if ok else 1
+
+
+def _archive(title: str, body: str) -> str:
+    """把当期日报写入 reports/<北京日期>.md，供仓库留存与回看。"""
+    date_str = datetime.now(ZoneInfo(config.TIMEZONE)).strftime("%Y-%m-%d")
+    os.makedirs("reports", exist_ok=True)
+    path = os.path.join("reports", f"{date_str}.md")
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(f"# {title}\n\n{body}")
+    print(f"[main] 已存档到 {path}")
+    return path
 
 
 def _dispatch(title: str, body: str) -> bool:

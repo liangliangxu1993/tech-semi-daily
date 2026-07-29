@@ -11,6 +11,8 @@ jobs:
   daily-report:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: write        # 允许把每日报告 commit 回仓库
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -39,3 +41,18 @@ jobs:
           ENABLE_LLM: ${{ vars.ENABLE_LLM || '1' }}
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
         run: python -m src.main
+
+      # 即使推送步骤失败也存档（报告在推送前已生成）；GITHUB_TOKEN 的提交不会再触发本工作流，无循环风险
+      - name: Archive report to repo
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          mkdir -p reports
+          git add reports/
+          if git diff --cached --quiet; then
+            echo "无新增日报，跳过提交"
+          else
+            git commit -m "chore: 日报存档 $(TZ='Asia/Shanghai' date +%Y-%m-%d)"
+            git push
+          fi
