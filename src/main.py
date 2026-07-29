@@ -54,7 +54,7 @@ def run(dry_run: bool = False, save_path: str | None = None) -> int:
 
     if save_path:
         with open(save_path, "w", encoding="utf-8") as f:
-            f.write(f"# {title}\n\n{body}")
+            f.write(body)   # body 首行已含 # 标题，勿重复添加
         print(f"[main] 报告已保存到 {save_path}")
 
     if dry_run:
@@ -76,7 +76,7 @@ def _archive(title: str, body: str) -> str:
     os.makedirs("reports", exist_ok=True)
     path = os.path.join("reports", f"{date_str}.md")
     with open(path, "w", encoding="utf-8") as f:
-        f.write(f"# {title}\n\n{body}")
+        f.write(body)   # body 首行已含 # 标题，勿重复添加
     print(f"[main] 已存档到 {path}")
     return path
 
