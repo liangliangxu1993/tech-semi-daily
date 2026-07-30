@@ -53,15 +53,74 @@
 
 若信号为 0 或新闻为空，检查日志中是否有 `数据获取失败`。
 
-## 六、日常维护
+## 六、外部定时触发（cron-job.org，比 GitHub 内置调度可靠）
+
+GitHub 内置 `schedule` 是「尽力而为」，新工作流常漏跑、高峰期延迟。
+更可靠的做法：让外部定时服务每天调用 GitHub 的 `workflow_dispatch` API 主动触发。
+
+### 6.1 创建细粒度 PAT（Personal Access Token）
+
+1. GitHub → 右上头像 → **Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token**
+2. 关键设置：
+   - **Token name**：`tech-semi-daily-dispatch`
+   - **Expiration**：按需（如 1 年）
+   - **Resource owner**：你的账号
+   - **Repository access**：`Only select repositories` → 勾选 `tech-semi-daily`
+   - **Permissions → Repository permissions → Actions**：设为 **Read and write**
+     （`Metadata: Read-only` 会自动带上，保留即可）
+3. **Generate token**，复制那串 `github_pat_xxxxx`（只显示一次，务必保存）。
+
+### 6.2 在 cron-job.org 建定时任务
+
+1. 到 https://cron-job.org 注册登录 → **Create cronjob**
+2. 填写：
+   - **Title**：`科技半导体日报触发`
+   - **URL**：
+     ```
+     https://api.github.com/repos/liangliangxu1993/tech-semi-daily/actions/workflows/daily.yml/dispatches
+     ```
+   - **Schedule**：时区选 `Asia/Shanghai`，时间每天 **08:37**
+     （若只能填 UTC，则填 **00:37**）
+3. 展开 **Advanced**：
+   - **Request method**：`POST`
+   - **Headers**（逐条添加）：
+     ```
+     Accept: application/vnd.github+json
+     Authorization: Bearer github_pat_你的token
+     X-GitHub-Api-Version: 2022-11-28
+     Content-Type: application/json
+     ```
+   - **Request body**：
+     ```json
+     {"ref":"main"}
+     ```
+4. 保存。可点 cron-job.org 的 **TEST RUN / 立即执行** 验证——成功时 GitHub 返回 **HTTP 204**（无响应体即正常），随后 Actions 会出现一条 `event = workflow_dispatch` 的运行。
+
+### 6.3 关掉内置 schedule，避免重复推送 ⚠️
+
+外部触发确认可用后，务必删除 `.github/workflows/daily.yml` 里的 `schedule:` 段
+（保留 `workflow_dispatch: {}`），否则内置调度一旦也触发就会**一天推送两次**。
+
+```yaml
+on:
+  workflow_dispatch: {}    # 仅保留手动 / 外部 API 触发
+```
+
+### 6.4 排障
+
+- **Actions 里没出现 workflow_dispatch 记录**：多半是 PAT 权限不足（须 Actions: Read and write）或 URL/仓库名写错。
+- **cron-job.org 显示失败但其实成功**：GitHub 返回 204 而非 200，部分工具会误判；以 Actions 页面是否出现运行为准。
+- **401/403**：token 过期、拼写错误，或没勾选该仓库。
+
+## 七、日常维护
 
 - **调整关注标的 / 新闻关键词**：改 `src/config.py` 的 `WATCHLIST` 和 `NEWS_SOURCES`
 - **调整量化阈值**：改 `src/config.py` 的 `THRESHOLDS`
 - **更新 FOMC 会议日历**：每年更新 `src/config.py` 的 `FOMC_MEETINGS_2026`
   （来源：https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm）
-- 首次跑通后 cron 会自动每天推送，无需再操作
+- 触发链路跑通后每天自动推送并存档到 `reports/`，无需再操作
 
-## 七、本地调试
+## 八、本地调试
 
 ```bash
 cp .env.example .env      # 填入本地密钥
