@@ -1,12 +1,11 @@
 name: 科技半导体日报
 
 on:
-  schedule:
-    # cron 使用 UTC 时间。00:37 UTC = 北京时间 08:37
-    # 刻意避开 :00/:30 这些最拥堵的整半点槽位，降低被 GitHub 延迟/丢弃的概率
-    # 注意：GitHub Actions 定时任务本身是「尽力而为」，高峰期仍可能延迟 5-15 分钟甚至更久
-    - cron: "37 0 * * *"
-  workflow_dispatch: {}   # 支持在 Actions 页面手动触发测试
+  # 定时由外部 cron-job.org 每天调用 workflow_dispatch API 触发（比 GitHub 内置 schedule 可靠）。
+  # 配置见 DEPLOY.md 第六章。若要回退到 GitHub 内置定时，取消下面注释即可：
+  #   schedule:
+  #     - cron: "37 0 * * *"   # 00:37 UTC = 北京 08:37
+  workflow_dispatch: {}   # 手动触发 + 外部 API（cron-job.org）触发
 
 jobs:
   daily-report:
